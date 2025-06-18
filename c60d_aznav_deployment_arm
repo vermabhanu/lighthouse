@@ -1,0 +1,71 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "customerResourceGroupName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the resource group in the customer's subscription to which delegation will be granted."
+            }
+        },
+        "managedByTenantId": {
+            "type": "string",
+            "defaultValue": "ABCDEFGH-C60D-Az01-Test-LightHouse",
+            "metadata": {
+                "description": "The managing tenant ID (C60 Digital's Azure AD tenant ID)."
+            }
+        },
+        "principalId_AzureMigrateTeam": {
+            "type": "string",
+            "defaultValue": "ABCDEFGH-1234-5678-ABCD-EF1234567890",
+            "metadata": {
+                "description": "The Object ID (principalId) of C60 Digital's 'Azure-Migrate-Team' Azure AD Security Group in the managing tenant. IMPORTANT: Replace this with actual Group Object ID."
+            }
+        }
+    },
+    "variables": {
+        "mspOfferName": "C60D_MigrationNavigator",
+        "mspOfferDescription": "Navigate migration",
+        "principalIdDisplayName_Navigators": "C60D_AzureMigrate_Navigators",
+        "contributorRoleDefinitionId": "/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ManagedServices/registrationDefinitions",
+            "apiVersion": "2022-10-01",
+            "name": "[guid(variables('mspOfferName'))]",
+            "scope": "[subscription().id]",
+            "properties": {
+                "tenantId": "[subscription().tenantId]",
+                "managedByTenantId": "[parameters('managedByTenantId')]",
+                "description": "[variables('mspOfferDescription')]",
+                "authorizations": [
+                    {
+                        "principalId": "[parameters('principalId_AzureMigrateTeam')]",
+                        "principalIdDisplayName": "[variables('principalIdDisplayName_Navigators')]",
+                        "roleDefinitionId": "[variables('contributorRoleDefinitionId')]"
+                    }
+                ],
+                "mspOfferName": "[variables('mspOfferName')]"
+            }
+        },
+        {
+            "type": "Microsoft.ManagedServices/registrationAssignments",
+            "apiVersion": "2022-10-01",
+            "name": "[guid(parameters('customerResourceGroupName'), variables('mspOfferName'))]",
+            "scope": "[resourceGroup(parameters('customerResourceGroupName')).id]",
+            "properties": {
+                "registrationDefinitionId": "[resourceId('Microsoft.ManagedServices/registrationDefinitions', guid(variables('mspOfferName')))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedServices/registrationDefinitions', guid(variables('mspOfferName')))]"
+            ]
+        }
+    ],
+    "outputs": {
+        "delegationStatus": {
+            "type": "string",
+            "value": "[concat('Delegation to resource group ', parameters('customerResourceGroupName'), ' for ', variables('mspOfferName'), ' initiated. Verification in your managing tenant might take a few minutes.')]"
+        }
+    }
+}
